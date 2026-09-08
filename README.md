@@ -29,13 +29,27 @@ forge test
 | `FEE_BPS` | Optional, defaults to 50 (0.50%) |
 | `MIN_AMOUNT` | Optional, defaults to `1e6` ($1-equivalent) |
 
+The private key is deliberately not one of the env vars — supply it only at deploy time, never persisted to disk:
+
 ```bash
-USDC_ADDRESS=0x... EURC_ADDRESS=0x... TREASURY_ADDRESS=0x... ADMIN_ADDRESS=0x... \
-  forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.io --broadcast
+source .env  # loads USDC_ADDRESS, EURC_ADDRESS, TREASURY_ADDRESS, ADMIN_ADDRESS, etc.
+forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.io --broadcast --interactive
 ```
+
+`--interactive` prompts for the private key at runtime — it's never written to a file or shell history. For repeated deploys, `cast wallet import <name> --interactive` once to create a local encrypted keystore, then use `--account <name>` instead of `--interactive` on future runs.
 
 Arc testnet: chain ID `5042002`, faucet at `faucet.circle.com`, explorer at `testnet.arcscan.app`.
 
+### Deployed (Arc testnet)
+
+| | |
+| --- | --- |
+| Address | [`0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D`](https://testnet.arcscan.app/address/0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D) |
+| Status | Verified on Blockscout |
+| Allowed tokens | USDC, EURC |
+| Fee | 0.50% |
+| Min send | $1-equivalent |
+
 ## Status
 
-Contracts are the only piece built so far. Backend and frontend are next.
+Contracts deployed and verified on Arc testnet. Backend and frontend are next.
