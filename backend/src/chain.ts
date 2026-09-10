@@ -1,16 +1,14 @@
 import { createPublicClient, http, defineChain } from "viem";
+import { config } from "./config.js";
 
 export const arcTestnet = defineChain({
   id: 5_042_002,
   name: "Arc Testnet",
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
-  rpcUrls: { default: { http: [process.env.RPC_URL ?? "https://rpc.testnet.arc.io"] } },
+  rpcUrls: { default: { http: [config.rpcUrl] } },
 });
 
 export const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
-
-export const REACH_ADDRESS = process.env.REACH_ADDRESS as `0x${string}`;
-export const REACH_DEPLOY_BLOCK = BigInt(process.env.REACH_DEPLOY_BLOCK ?? "61080712");
 
 export const reachAbi = [
   {

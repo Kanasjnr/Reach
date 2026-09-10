@@ -1,10 +1,8 @@
 import { PrivyClient } from "@privy-io/node";
+import { config } from "./config.js";
 import { getWalletForEmail, cacheWalletForEmail } from "./db.js";
 
-const privy = new PrivyClient({
-  appId: process.env.PRIVY_APP_ID!,
-  appSecret: process.env.PRIVY_APP_SECRET!,
-});
+const privy = new PrivyClient({ appId: config.privyAppId, appSecret: config.privyAppSecret });
 
 function extractWalletAddress(linkedAccounts: any[]): string | undefined {
   return linkedAccounts.find((a) => a.type === "wallet" && a.chain_type === "ethereum")?.address;
