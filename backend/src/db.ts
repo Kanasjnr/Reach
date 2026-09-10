@@ -1,6 +1,8 @@
 import Database from "better-sqlite3";
+import type { PushSubscription } from "web-push";
+import { config } from "./config.js";
 
-export const db = new Database(process.env.DB_PATH ?? "reach.sqlite");
+export const db = new Database(config.dbPath);
 db.pragma("journal_mode = WAL");
 
 db.exec(`
@@ -30,6 +32,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS wallets (
     email TEXT PRIMARY KEY,
     address TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    address TEXT PRIMARY KEY,
+    subscription TEXT NOT NULL
   );
 `);
 
@@ -92,9 +99,16 @@ export function cacheWalletForEmail(email: string, address: string) {
   );
 }
 
-export function getEmailForWallet(address: string): string | undefined {
-  const row = db.prepare("SELECT email FROM wallets WHERE address = ?").get(address.toLowerCase()) as
-    | { email: string }
-    | undefined;
-  return row?.email;
+export function savePushSubscription(address: string, subscription: unknown) {
+  db.prepare("INSERT OR REPLACE INTO push_subscriptions (address, subscription) VALUES (?, ?)").run(
+    address.toLowerCase(),
+    JSON.stringify(subscription)
+  );
+}
+
+export function getPushSubscription(address: string): PushSubscription | undefined {
+  const row = db
+    .prepare("SELECT subscription FROM push_subscriptions WHERE address = ?")
+    .get(address.toLowerCase()) as { subscription: string } | undefined;
+  return row ? JSON.parse(row.subscription) : undefined;
 }

@@ -1,4 +1,5 @@
-import { publicClient, reachAbi, REACH_ADDRESS, REACH_DEPLOY_BLOCK } from "./chain.js";
+import { publicClient, reachAbi } from "./chain.js";
+import { config } from "./config.js";
 import { getSyncedBlock, setSyncedBlock, insertTransaction, type TransactionRow } from "./db.js";
 import { notifyReceiver } from "./notifier.js";
 
@@ -40,7 +41,7 @@ async function handleLogs(logs: any[]) {
 async function fetchLogs(from: bigint, to: bigint, attempt = 0): Promise<any[]> {
   try {
     return await publicClient.getLogs({
-      address: REACH_ADDRESS,
+      address: config.reachAddress,
       event: reachAbi[0],
       fromBlock: from,
       toBlock: to,
@@ -55,7 +56,7 @@ async function fetchLogs(from: bigint, to: bigint, attempt = 0): Promise<any[]> 
 }
 
 async function backfill() {
-  let from = getSyncedBlock(REACH_DEPLOY_BLOCK);
+  let from = getSyncedBlock(config.reachDeployBlock);
   const head = await publicClient.getBlockNumber();
 
   while (from <= head) {
@@ -70,7 +71,7 @@ async function backfill() {
 
 function watchLive() {
   publicClient.watchContractEvent({
-    address: REACH_ADDRESS,
+    address: config.reachAddress,
     abi: reachAbi,
     eventName: "RemittanceSent",
     onLogs: (logs) => {
@@ -79,6 +80,9 @@ function watchLive() {
         if (last) setSyncedBlock(last.blockNumber);
       });
     },
+    // without this, a poll that hits the same rate limit backfill ran into fails
+    // silently and the indexer just quietly stops picking up new sends
+    onError: (err) => console.error("live watch error", err),
   });
 }
 
