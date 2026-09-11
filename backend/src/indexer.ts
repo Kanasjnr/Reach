@@ -1,6 +1,6 @@
 import { publicClient, reachAbi } from "./chain.js";
 import { config } from "./config.js";
-import { getSyncedBlock, setSyncedBlock, insertTransaction, type TransactionRow } from "./db.js";
+import { getSyncedBlock, setSyncedBlock, insertTransaction, hasReachTransaction, type TransactionRow } from "./db.js";
 import { notifyReceiver } from "./notifier.js";
 
 // Arc produces blocks fast, so a deploy from a few hours ago can already be hundreds
@@ -12,7 +12,7 @@ const PACE_MS = 150;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function toRow(log: any): TransactionRow {
+function reachLogToRow(log: any): TransactionRow {
   return {
     tx_hash: log.transactionHash,
     log_index: log.logIndex,
@@ -25,17 +25,8 @@ function toRow(log: any): TransactionRow {
     net_amount: log.args.netAmount.toString(),
     memo: log.args.memo,
     created_at: Date.now(),
+    kind: "reach",
   };
-}
-
-async function handleLogs(logs: any[]) {
-  for (const log of logs) {
-    const row = toRow(log);
-    insertTransaction(row);
-    notifyReceiver(row.receiver, row.net_amount, row.token).catch((err) =>
-      console.error("notify failed", row.tx_hash, err)
-    );
-  }
 }
 
 async function fetchLogs(from: bigint, to: bigint, attempt = 0): Promise<any[]> {
@@ -52,6 +43,16 @@ async function fetchLogs(from: bigint, to: bigint, attempt = 0): Promise<any[]> 
       return fetchLogs(from, to, attempt + 1);
     }
     throw err;
+  }
+}
+
+async function handleLogs(logs: any[]) {
+  for (const log of logs) {
+    const row = reachLogToRow(log);
+    insertTransaction(row);
+    notifyReceiver(row.receiver, row.net_amount, row.token).catch((err) =>
+      console.error("notify failed", row.tx_hash, err)
+    );
   }
 }
 
@@ -84,6 +85,56 @@ function watchLive() {
     // silently and the indexer just quietly stops picking up new sends
     onError: (err) => console.error("live watch error", err),
   });
+}
+
+interface ExplorerTokenTx {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  contractAddress: string;
+  blockNumber: string;
+  timeStamp: string;
+}
+
+// Arc's USDC is the chain's native gas token — a plain value-transfer never emits an
+// ERC20 Transfer log, so scanning logs can never see it, and USDC's Transfer log
+// volume (it backs *every* tx's gas payment) makes chain-wide log scanning
+// infeasible regardless. Arc's block explorer already indexes both plain native
+// sends and real ERC20 transfers under one address-scoped endpoint, so deposits are
+// synced from there instead of from raw RPC logs.
+export async function syncDeposits(address: `0x${string}`) {
+  const url = `${config.explorerApiUrl}?module=account&action=tokentx&address=${address}&sort=desc`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`explorer API request failed: ${res.status}`);
+
+  const body = (await res.json()) as { status: string; result: ExplorerTokenTx[] | string };
+  if (!Array.isArray(body.result)) return; // status "0" means no transfers found, not an error
+
+  const knownTokens = new Set([config.usdcAddress.toLowerCase(), config.eurcAddress.toLowerCase()]);
+
+  for (const tx of body.result) {
+    if (!knownTokens.has(tx.contractAddress.toLowerCase())) continue;
+    if (hasReachTransaction(tx.hash)) continue; // Reach's own transfer, already indexed as a "reach" row
+
+    insertTransaction({
+      tx_hash: tx.hash,
+      // the explorer doesn't expose a log index for these, and a wallet receiving
+      // two different-token transfers in the exact same tx isn't a real scenario
+      // here, so one synthetic slot per tx is enough to stay idempotent on re-sync
+      log_index: -1,
+      block_number: Number(tx.blockNumber),
+      sender: tx.from.toLowerCase(),
+      receiver: tx.to.toLowerCase(),
+      token: tx.contractAddress.toLowerCase(),
+      gross_amount: tx.value,
+      fee: "0",
+      net_amount: tx.value,
+      memo: null,
+      created_at: Number(tx.timeStamp) * 1000,
+      kind: "deposit",
+    });
+  }
 }
 
 export async function startIndexer() {

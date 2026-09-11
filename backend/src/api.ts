@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { publicClient, erc20Abi } from "./chain.js";
 import { getHistory, getSyncedBlock, savePushSubscription } from "./db.js";
 import { resolveReceiverWallet } from "./identity.js";
+import { syncDeposits } from "./indexer.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -39,9 +40,20 @@ app.get("/balance/:address", async (req, res) => {
   }
 });
 
-app.get("/history/:address", (req, res) => {
-  if (!isAddress(req.params.address)) return res.status(400).json({ error: "invalid address" });
-  res.json(getHistory(req.params.address));
+app.get("/history/:address", async (req, res) => {
+  const { address } = req.params;
+  if (!isAddress(address)) return res.status(400).json({ error: "invalid address" });
+
+  try {
+    await syncDeposits(address);
+  } catch (err) {
+    // Deposits are a live on-chain scan on top of the indexed Reach history —
+    // if the RPC hiccups, still return what we already have rather than failing
+    // the whole request.
+    console.error("deposit sync failed", address, err);
+  }
+
+  res.json(getHistory(address));
 });
 
 app.post("/resolve-receiver", async (req, res) => {
