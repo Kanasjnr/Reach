@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
-import { TOKENS } from "@/lib/chain";
 import { useBalances, useHistory } from "@/lib/hooks";
 import { useCountUp } from "@/lib/useCountUp";
 import type { HistoryEntry } from "@/lib/api";
@@ -79,7 +78,7 @@ function Dashboard({ address }: { address: `0x${string}` }) {
   const [depositOpen, setDepositOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<HistoryEntry | null>(null);
   const [hidden, setHidden] = useState(false);
-  const { data: balances } = useBalances(address);
+  const { data: balances, isError: balancesErrored, refetch: refetchBalances } = useBalances(address);
   const { data: history } = useHistory(address);
 
   const totalRaw = balances?.reduce((sum, b) => sum + b, BigInt(0));
@@ -121,7 +120,11 @@ function Dashboard({ address }: { address: `0x${string}` }) {
           <div className="relative">
             <p className="text-sm text-white/70 mb-1">Current balance</p>
             <div className="flex items-center gap-2.5">
-              {totalNumber === undefined ? (
+              {balancesErrored ? (
+                <button onClick={() => refetchBalances()} className="text-sm underline text-white/90">
+                  Couldn&apos;t load balance — tap to retry
+                </button>
+              ) : totalNumber === undefined ? (
                 <Skeleton className="h-10 w-32 bg-white/20" />
               ) : (
                 <span className="text-4xl font-semibold tracking-tight tabular-nums">
@@ -140,16 +143,6 @@ function Dashboard({ address }: { address: `0x${string}` }) {
               >
                 {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-            </div>
-            <div className="flex gap-2 mt-4">
-              {TOKENS.map((t, i) => (
-                <span
-                  key={t.symbol}
-                  className="text-xs px-3 py-1 rounded-full bg-white/15 text-white/90"
-                >
-                  {hidden ? "•••" : balances ? formatUnits(balances[i], 6) : "…"} {t.symbol}
-                </span>
-              ))}
             </div>
           </div>
         </section>

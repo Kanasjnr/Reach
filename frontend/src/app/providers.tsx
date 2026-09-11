@@ -18,7 +18,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
-        embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
+        // "all-users", not "users-without-wallets" — the whole point of Reach is
+        // no external wallet needed. If a user's Privy account already has some
+        // other wallet linked (e.g. MetaMask from an unrelated prior connection),
+        // "users-without-wallets" would skip creating our embedded wallet and let
+        // that external one win instead, which defeats the actual product.
+        embeddedWallets: { ethereum: { createOnLogin: "all-users" } },
         loginMethods: ["email", "sms"],
         defaultChain: arcTestnet,
         supportedChains: [arcTestnet],
