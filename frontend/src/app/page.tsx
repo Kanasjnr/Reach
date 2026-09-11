@@ -7,93 +7,163 @@ import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { TOKENS } from "@/lib/chain";
 import { useBalances, useHistory } from "@/lib/hooks";
-import { SendIcon, DepositIcon } from "@/components/icons";
+import { useCountUp } from "@/lib/useCountUp";
+import type { HistoryEntry } from "@/lib/api";
+import { Logo } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ArrowUpRight, ArrowDownLeft, Eye, EyeOff, type LucideIcon } from "lucide-react";
 import { SendSheet } from "@/components/SendSheet";
 import { DepositSheet } from "@/components/DepositSheet";
 import { TransactionRow } from "@/components/TransactionRow";
+import { TransactionDetailSheet } from "@/components/TransactionDetailSheet";
 import { BottomNav } from "@/components/BottomNav";
 
 export default function Home() {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated } = usePrivy();
   const { address } = useAccount();
 
   if (!ready) return null;
-
-  if (!authenticated) {
-    return (
-      <main className="flex-1 flex flex-col items-center justify-center gap-6 p-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center text-accent-foreground text-2xl font-bold">
-          R
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold">Reach</h1>
-          <p className="text-sm text-muted mt-1">
-            Send USDC or EURC instantly, no matter which chain it&apos;s on.
-          </p>
-        </div>
-        <button onClick={login} className="rounded-full bg-accent text-accent-foreground px-8 py-3 text-sm font-medium">
-          Log in
-        </button>
-      </main>
-    );
-  }
-
+  if (!authenticated) return <LandingScreen />;
   return address ? <Dashboard address={address} /> : null;
 }
 
+function LandingScreen() {
+  const { login } = usePrivy();
+
+  return (
+    <main className="flex-1 relative flex flex-col items-center justify-center gap-8 p-6 text-center overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(600px circle at 20% 15%, color-mix(in oklab, var(--gradient-from) 22%, transparent), transparent 60%), radial-gradient(600px circle at 85% 80%, color-mix(in oklab, var(--gradient-to) 20%, transparent), transparent 60%)",
+        }}
+      />
+
+      <Logo size={72} className="drop-shadow-lg" />
+
+      <div className="space-y-3 max-w-xs">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Send money <span className="brand-gradient-text">anywhere</span>, instantly
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          USDC or EURC, any email, no seed phrase, no waiting.
+        </p>
+      </div>
+
+      <Button
+        size="lg"
+        onClick={login}
+        className="rounded-full px-10 h-12 text-base brand-gradient border-0 shadow-lg shadow-primary/25"
+      >
+        Log in
+      </Button>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span>Self-custodial</span>
+        <span className="w-1 h-1 rounded-full bg-border" />
+        <span>USDC & EURC</span>
+        <span className="w-1 h-1 rounded-full bg-border" />
+        <span>Secured on Arc</span>
+      </div>
+    </main>
+  );
+}
+
 function Dashboard({ address }: { address: `0x${string}` }) {
+  const { user } = usePrivy();
   const [sendOpen, setSendOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<HistoryEntry | null>(null);
+  const [hidden, setHidden] = useState(false);
   const { data: balances } = useBalances(address);
   const { data: history } = useHistory(address);
 
-  const total = balances?.reduce((sum, b) => sum + b, BigInt(0));
+  const totalRaw = balances?.reduce((sum, b) => sum + b, BigInt(0));
+  const totalNumber = totalRaw !== undefined ? Number(formatUnits(totalRaw, 6)) : undefined;
+  const animated = useCountUp(totalNumber);
+  const email = user?.email?.address ?? "";
 
   return (
     <>
-      <main className="flex-1 max-w-lg mx-auto w-full p-6 pb-28 space-y-8">
+      <main className="flex-1 max-w-lg mx-auto w-full p-6 pb-28 space-y-6">
         <header className="flex items-center justify-between">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-accent-foreground text-sm font-bold">
-            R
-          </div>
+          <Link href="/profile" className="flex items-center gap-3">
+            <Avatar className="w-11 h-11">
+              <AvatarFallback className="brand-gradient text-white font-medium">
+                {email.charAt(0).toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-semibold leading-tight">{email || "Welcome"}</p>
+              <p className="text-xs text-muted-foreground">Welcome back</p>
+            </div>
+          </Link>
+          <Logo size={28} />
         </header>
 
-        <section className="text-center py-4">
-          <div className="text-sm text-muted mb-1">Balance</div>
-          <div className="text-4xl font-semibold tracking-tight">
-            {total !== undefined ? formatUnits(total, 6) : "…"}
-          </div>
-          <div className="flex justify-center gap-4 mt-3 text-xs text-muted">
-            {TOKENS.map((t, i) => (
-              <span key={t.symbol}>
-                {balances ? formatUnits(balances[i], 6) : "…"} {t.symbol}
-              </span>
-            ))}
+        <section
+          className="relative overflow-hidden rounded-3xl p-6 text-white shadow-lg shadow-primary/20"
+          style={{ background: "linear-gradient(160deg, var(--gradient-from), var(--gradient-to))" }}
+        >
+          <div
+            aria-hidden
+            className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10"
+          />
+          <div
+            aria-hidden
+            className="absolute -right-4 bottom-0 w-24 h-24 rounded-full bg-white/10"
+          />
+
+          <div className="relative">
+            <p className="text-sm text-white/70 mb-1">Current balance</p>
+            <div className="flex items-center gap-2.5">
+              {totalNumber === undefined ? (
+                <Skeleton className="h-10 w-32 bg-white/20" />
+              ) : (
+                <span className="text-4xl font-semibold tracking-tight tabular-nums">
+                  {hidden
+                    ? "••••••"
+                    : animated.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                </span>
+              )}
+              <button
+                onClick={() => setHidden((h) => !h)}
+                className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0"
+                aria-label={hidden ? "Show balance" : "Hide balance"}
+              >
+                {hidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <div className="flex gap-2 mt-4">
+              {TOKENS.map((t, i) => (
+                <span
+                  key={t.symbol}
+                  className="text-xs px-3 py-1 rounded-full bg-white/15 text-white/90"
+                >
+                  {hidden ? "•••" : balances ? formatUnits(balances[i], 6) : "…"} {t.symbol}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setSendOpen(true)}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface py-4"
-          >
-            <SendIcon className="w-5 h-5 text-accent" />
-            <span className="text-sm font-medium">Send</span>
-          </button>
-          <button
-            onClick={() => setDepositOpen(true)}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface py-4"
-          >
-            <DepositIcon className="w-5 h-5 text-accent" />
-            <span className="text-sm font-medium">Deposit</span>
-          </button>
+        <section className="flex gap-3">
+          <ActionButton icon={ArrowUpRight} label="Send" onClick={() => setSendOpen(true)} />
+          <ActionButton icon={ArrowDownLeft} label="Deposit" onClick={() => setDepositOpen(true)} />
         </section>
 
         <section>
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-medium text-muted">Recent activity</h2>
+            <h2 className="text-sm font-medium text-muted-foreground">Recent activity</h2>
             {!!history?.length && (
-              <Link href="/history" className="text-xs text-accent">
+              <Link href="/history" className="text-xs text-primary font-medium">
                 See all
               </Link>
             )}
@@ -101,18 +171,44 @@ function Dashboard({ address }: { address: `0x${string}` }) {
           {history?.length ? (
             <div className="divide-y divide-border">
               {history.slice(0, 4).map((tx) => (
-                <TransactionRow key={`${tx.tx_hash}-${tx.block_number}`} tx={tx} address={address} />
+                <TransactionRow
+                  key={`${tx.tx_hash}-${tx.block_number}`}
+                  tx={tx}
+                  address={address}
+                  onClick={() => setSelectedTx(tx)}
+                />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted py-6 text-center">No activity yet</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">No activity yet</p>
           )}
         </section>
       </main>
 
       <SendSheet open={sendOpen} onClose={() => setSendOpen(false)} address={address} />
       <DepositSheet open={depositOpen} onClose={() => setDepositOpen(false)} address={address} />
+      <TransactionDetailSheet tx={selectedTx} address={address} onClose={() => setSelectedTx(null)} />
       <BottomNav />
     </>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 h-[52px] rounded-2xl bg-accent flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+    >
+      <Icon className="w-4.5 h-4.5 text-accent-foreground" />
+      <span className="text-sm font-semibold text-accent-foreground">{label}</span>
+    </button>
   );
 }

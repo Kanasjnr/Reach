@@ -10,6 +10,7 @@ import { reachAbi, erc20Abi } from "@/lib/reachAbi";
 import { resolveReceiver } from "@/lib/api";
 import { wagmiConfig } from "@/lib/wagmiConfig";
 import { Sheet } from "./Sheet";
+import { Button } from "@/components/ui/button";
 
 export function SendSheet({
   open,
@@ -85,7 +86,7 @@ export function SendSheet({
           placeholder="receiver@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-background"
+          className="w-full border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/50"
         />
         <div className="flex gap-2">
           <input
@@ -96,12 +97,12 @@ export function SendSheet({
             placeholder="0.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="flex-1 border border-border rounded-xl px-4 py-3 text-sm bg-background"
+            className="flex-1 border border-input rounded-xl px-4 py-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring/50"
           />
           <select
             value={token.symbol}
             onChange={(e) => setToken(TOKENS.find((t) => t.symbol === e.target.value)!)}
-            className="border border-border rounded-xl px-3 py-3 text-sm bg-background"
+            className="border border-input rounded-xl px-3 py-3 text-sm bg-background"
           >
             {TOKENS.map((t) => (
               <option key={t.symbol} value={t.symbol}>
@@ -110,14 +111,15 @@ export function SendSheet({
             ))}
           </select>
         </div>
-        <button
+        <Button
           type="submit"
           disabled={sending}
-          className="w-full rounded-full bg-accent text-accent-foreground px-4 py-3.5 text-sm font-medium disabled:opacity-50"
+          size="lg"
+          className="w-full rounded-full h-12 text-sm brand-gradient border-0"
         >
           {sending ? "Sending…" : "Send"}
-        </button>
-        {status && <p className="text-xs text-muted text-center">{status}</p>}
+        </Button>
+        {status && <p className="text-xs text-muted-foreground text-center">{status}</p>}
       </form>
     </Sheet>
   );
