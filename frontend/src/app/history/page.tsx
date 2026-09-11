@@ -45,7 +45,7 @@ export default function HistoryPage() {
 }
 
 function HistoryList({ address }: { address: `0x${string}` }) {
-  const { data, isLoading } = useHistory(address);
+  const { data, isLoading, isError, refetch } = useHistory(address);
   const groups = data ? groupByDay(data) : null;
   const [selectedTx, setSelectedTx] = useState<HistoryEntry | null>(null);
 
@@ -62,7 +62,16 @@ function HistoryList({ address }: { address: `0x${string}` }) {
           </div>
         )}
 
-        {!isLoading && !data?.length && (
+        {isError && (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-sm font-medium">Couldn&apos;t load your history</p>
+            <button onClick={() => refetch()} className="text-sm text-primary underline">
+              Try again
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !isError && !data?.length && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center">
               <History className="w-6 h-6 text-muted-foreground" />

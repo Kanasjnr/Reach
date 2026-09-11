@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4021";
 
 export async function resolveReceiver(email: string): Promise<string> {
   const res = await fetch(`${API_URL}/resolve-receiver`, {
@@ -25,13 +25,13 @@ export interface HistoryEntry {
 
 export async function getHistory(address: string): Promise<HistoryEntry[]> {
   const res = await fetch(`${API_URL}/history/${address}`);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(`history fetch failed: ${res.status}`);
   return res.json();
 }
 
 export async function getBalance(address: string, token: string): Promise<bigint> {
   const res = await fetch(`${API_URL}/balance/${address}?token=${token}`);
-  if (!res.ok) return BigInt(0);
+  if (!res.ok) throw new Error(`balance fetch failed: ${res.status}`);
   return BigInt((await res.json()).balance);
 }
 

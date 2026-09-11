@@ -5,6 +5,14 @@ import { config } from "./config.js";
 export const db = new Database(config.dbPath);
 db.pragma("journal_mode = WAL");
 
+// sync_state used to be a single-row cursor (id=1) for the Reach indexer only.
+// Now that deposits (plain ERC20 transfers) are indexed from separate sources,
+// each source needs its own cursor — migrate the old shape away if we find it.
+const syncStateCols = db.prepare("PRAGMA table_info(sync_state)").all() as { name: string }[];
+if (syncStateCols.length && !syncStateCols.some((c) => c.name === "key")) {
+  db.exec("DROP TABLE sync_state");
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS transactions (
     tx_hash TEXT NOT NULL,
@@ -18,6 +26,7 @@ db.exec(`
     net_amount TEXT NOT NULL,
     memo TEXT,
     created_at INTEGER NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'reach',
     PRIMARY KEY (tx_hash, log_index)
   );
 
@@ -25,7 +34,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_transactions_receiver ON transactions(receiver);
 
   CREATE TABLE IF NOT EXISTS sync_state (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
+    key TEXT PRIMARY KEY,
     last_synced_block TEXT NOT NULL
   );
 
@@ -40,6 +49,11 @@ db.exec(`
   );
 `);
 
+const txCols = db.prepare("PRAGMA table_info(transactions)").all() as { name: string }[];
+if (!txCols.some((c) => c.name === "kind")) {
+  db.exec("ALTER TABLE transactions ADD COLUMN kind TEXT NOT NULL DEFAULT 'reach'");
+}
+
 export interface TransactionRow {
   tx_hash: string;
   log_index: number;
@@ -52,29 +66,36 @@ export interface TransactionRow {
   net_amount: string;
   memo: string | null;
   created_at: number;
+  kind: "reach" | "deposit";
 }
 
 const insertTx = db.prepare(`
   INSERT OR IGNORE INTO transactions
-    (tx_hash, log_index, block_number, sender, receiver, token, gross_amount, fee, net_amount, memo, created_at)
-  VALUES (@tx_hash, @log_index, @block_number, @sender, @receiver, @token, @gross_amount, @fee, @net_amount, @memo, @created_at)
+    (tx_hash, log_index, block_number, sender, receiver, token, gross_amount, fee, net_amount, memo, created_at, kind)
+  VALUES (@tx_hash, @log_index, @block_number, @sender, @receiver, @token, @gross_amount, @fee, @net_amount, @memo, @created_at, @kind)
 `);
 
 export function insertTransaction(row: TransactionRow) {
   insertTx.run(row);
 }
 
-export function getSyncedBlock(defaultBlock: bigint): bigint {
-  const row = db.prepare("SELECT last_synced_block FROM sync_state WHERE id = 1").get() as
+export function getSyncedBlock(defaultBlock: bigint, key = "reach"): bigint {
+  const row = db.prepare("SELECT last_synced_block FROM sync_state WHERE key = ?").get(key) as
     | { last_synced_block: string }
     | undefined;
   return row ? BigInt(row.last_synced_block) : defaultBlock;
 }
 
-export function setSyncedBlock(block: bigint) {
+export function setSyncedBlock(block: bigint, key = "reach") {
   db.prepare(
-    "INSERT INTO sync_state (id, last_synced_block) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET last_synced_block = excluded.last_synced_block"
-  ).run(block.toString());
+    "INSERT INTO sync_state (key, last_synced_block) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET last_synced_block = excluded.last_synced_block"
+  ).run(key, block.toString());
+}
+
+export function hasReachTransaction(txHash: string): boolean {
+  return !!db
+    .prepare("SELECT 1 FROM transactions WHERE tx_hash = ? AND kind = 'reach' LIMIT 1")
+    .get(txHash);
 }
 
 export function getHistory(address: string, limit = 50): TransactionRow[] {
