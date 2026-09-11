@@ -1,190 +1,118 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { getPublicClient } from "wagmi/actions";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatUnits, parseUnits, stringToHex, isAddress } from "viem";
-import { REACH_ADDRESS, TOKENS } from "@/lib/chain";
-import { reachAbi, erc20Abi } from "@/lib/reachAbi";
-import { resolveReceiver, getHistory, getBalance } from "@/lib/api";
-import { wagmiConfig } from "@/lib/wagmiConfig";
+import { useAccount } from "wagmi";
+import { formatUnits } from "viem";
+import { TOKENS } from "@/lib/chain";
+import { useBalances, useHistory } from "@/lib/hooks";
+import { SendIcon, DepositIcon } from "@/components/icons";
+import { SendSheet } from "@/components/SendSheet";
+import { DepositSheet } from "@/components/DepositSheet";
+import { TransactionRow } from "@/components/TransactionRow";
+import { BottomNav } from "@/components/BottomNav";
 
 export default function Home() {
-  const { ready, authenticated, login, logout } = usePrivy();
+  const { ready, authenticated, login } = usePrivy();
   const { address } = useAccount();
 
   if (!ready) return null;
 
-  return (
-    <main className="flex-1 max-w-lg mx-auto w-full p-6 space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Reach</h1>
-        {authenticated ? (
-          <button onClick={logout} className="text-sm text-gray-500">
-            Log out
-          </button>
-        ) : (
-          <button onClick={login} className="rounded bg-black text-white px-4 py-2 text-sm">
-            Log in
-          </button>
-        )}
-      </header>
-
-      {authenticated && address && (
-        <>
-          <Balances address={address} />
-          <SendForm address={address} />
-          <History address={address} />
-        </>
-      )}
-    </main>
-  );
-}
-
-function Balances({ address }: { address: `0x${string}` }) {
-  const { data } = useQuery({
-    queryKey: ["balances", address],
-    queryFn: async () =>
-      Promise.all(TOKENS.map((t) => getBalance(address, t.address))),
-    refetchInterval: 10_000,
-  });
-
-  return (
-    <section className="grid grid-cols-2 gap-3">
-      {TOKENS.map((t, i) => (
-        <div key={t.symbol} className="border rounded p-3">
-          <div className="text-xs text-gray-500">{t.symbol}</div>
-          <div className="text-lg font-medium">
-            {data ? formatUnits(data[i], 6) : "…"}
-          </div>
+  if (!authenticated) {
+    return (
+      <main className="flex-1 flex flex-col items-center justify-center gap-6 p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center text-accent-foreground text-2xl font-bold">
+          R
         </div>
-      ))}
-    </section>
-  );
-}
-
-function SendForm({ address }: { address: `0x${string}` }) {
-  const [email, setEmail] = useState("");
-  const [amount, setAmount] = useState("");
-  const [token, setToken] = useState<(typeof TOKENS)[number]>(TOKENS[0]);
-  const [status, setStatus] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  const { data: feeBps } = useReadContract({
-    address: REACH_ADDRESS,
-    abi: reachAbi,
-    functionName: "feeBps",
-  });
-
-  const { writeContractAsync } = useWriteContract();
-
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("resolving receiver…");
-    try {
-      const receiver = await resolveReceiver(email);
-      if (!isAddress(receiver)) throw new Error("resolver returned an invalid address");
-
-      const rawAmount = parseUnits(amount, 6);
-
-      setStatus("approving…");
-      const approveHash = await writeContractAsync({
-        address: token.address,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [REACH_ADDRESS, rawAmount],
-      });
-      await waitFor(approveHash);
-
-      setStatus("sending…");
-      const sendHash = await writeContractAsync({
-        address: REACH_ADDRESS,
-        abi: reachAbi,
-        functionName: "send",
-        args: [receiver, token.address, rawAmount, feeBps ?? 65535, stringToHex("", { size: 32 })],
-      });
-      await waitFor(sendHash);
-
-      setStatus("sent");
-      setEmail("");
-      setAmount("");
-      queryClient.invalidateQueries({ queryKey: ["balances", address] });
-      queryClient.invalidateQueries({ queryKey: ["history", address] });
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : "send failed");
-    }
+        <div>
+          <h1 className="text-xl font-semibold">Reach</h1>
+          <p className="text-sm text-muted mt-1">
+            Send USDC or EURC instantly, no matter which chain it&apos;s on.
+          </p>
+        </div>
+        <button onClick={login} className="rounded-full bg-accent text-accent-foreground px-8 py-3 text-sm font-medium">
+          Log in
+        </button>
+      </main>
+    );
   }
 
-  return (
-    <form onSubmit={handleSend} className="space-y-3 border rounded p-4">
-      <input
-        type="email"
-        required
-        placeholder="receiver@email.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full border rounded px-3 py-2 text-sm"
-      />
-      <div className="flex gap-2">
-        <input
-          type="number"
-          required
-          min="0"
-          step="0.000001"
-          placeholder="amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="flex-1 border rounded px-3 py-2 text-sm"
-        />
-        <select
-          value={token.symbol}
-          onChange={(e) => setToken(TOKENS.find((t) => t.symbol === e.target.value)!)}
-          className="border rounded px-3 py-2 text-sm"
-        >
-          {TOKENS.map((t) => (
-            <option key={t.symbol} value={t.symbol}>
-              {t.symbol}
-            </option>
-          ))}
-        </select>
-      </div>
-      <button type="submit" className="w-full rounded bg-black text-white px-4 py-2 text-sm">
-        Send
-      </button>
-      {status && <p className="text-xs text-gray-500">{status}</p>}
-    </form>
-  );
+  return address ? <Dashboard address={address} /> : null;
 }
 
-function History({ address }: { address: `0x${string}` }) {
-  const { data } = useQuery({
-    queryKey: ["history", address],
-    queryFn: () => getHistory(address),
-    refetchInterval: 10_000,
-  });
+function Dashboard({ address }: { address: `0x${string}` }) {
+  const [sendOpen, setSendOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const { data: balances } = useBalances(address);
+  const { data: history } = useHistory(address);
 
-  if (!data?.length) return null;
+  const total = balances?.reduce((sum, b) => sum + b, BigInt(0));
 
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-medium text-gray-500">History</h2>
-      {data.map((tx) => {
-        const outgoing = tx.sender === address.toLowerCase();
-        return (
-          <div key={`${tx.tx_hash}-${tx.block_number}`} className="border rounded p-3 text-sm flex justify-between">
-            <span>{outgoing ? "Sent" : "Received"}</span>
-            <span>{formatUnits(BigInt(tx.net_amount), 6)}</span>
+    <>
+      <main className="flex-1 max-w-lg mx-auto w-full p-6 pb-28 space-y-8">
+        <header className="flex items-center justify-between">
+          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-accent-foreground text-sm font-bold">
+            R
           </div>
-        );
-      })}
-    </section>
-  );
-}
+        </header>
 
-// useWaitForTransactionReceipt is the idiomatic wagmi hook for this, but this runs
-// inside an event handler, not render, so it needs the imperative client directly
-async function waitFor(hash: `0x${string}`) {
-  await getPublicClient(wagmiConfig)?.waitForTransactionReceipt({ hash });
+        <section className="text-center py-4">
+          <div className="text-sm text-muted mb-1">Balance</div>
+          <div className="text-4xl font-semibold tracking-tight">
+            {total !== undefined ? formatUnits(total, 6) : "…"}
+          </div>
+          <div className="flex justify-center gap-4 mt-3 text-xs text-muted">
+            {TOKENS.map((t, i) => (
+              <span key={t.symbol}>
+                {balances ? formatUnits(balances[i], 6) : "…"} {t.symbol}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setSendOpen(true)}
+            className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface py-4"
+          >
+            <SendIcon className="w-5 h-5 text-accent" />
+            <span className="text-sm font-medium">Send</span>
+          </button>
+          <button
+            onClick={() => setDepositOpen(true)}
+            className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface py-4"
+          >
+            <DepositIcon className="w-5 h-5 text-accent" />
+            <span className="text-sm font-medium">Deposit</span>
+          </button>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-medium text-muted">Recent activity</h2>
+            {!!history?.length && (
+              <Link href="/history" className="text-xs text-accent">
+                See all
+              </Link>
+            )}
+          </div>
+          {history?.length ? (
+            <div className="divide-y divide-border">
+              {history.slice(0, 4).map((tx) => (
+                <TransactionRow key={`${tx.tx_hash}-${tx.block_number}`} tx={tx} address={address} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted py-6 text-center">No activity yet</p>
+          )}
+        </section>
+      </main>
+
+      <SendSheet open={sendOpen} onClose={() => setSendOpen(false)} address={address} />
+      <DepositSheet open={depositOpen} onClose={() => setDepositOpen(false)} address={address} />
+      <BottomNav />
+    </>
+  );
 }
