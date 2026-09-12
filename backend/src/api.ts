@@ -3,7 +3,7 @@ import express from "express";
 import { isAddress } from "viem";
 import { config } from "./config.js";
 import { publicClient, erc20Abi } from "./chain.js";
-import { getHistory, getSyncedBlock, savePushSubscription } from "./db.js";
+import { getHistory, getSyncedBlock, savePushSubscription, setDisplayName, getDisplayName } from "./db.js";
 import { resolveReceiverWallet } from "./identity.js";
 import { syncDeposits } from "./indexer.js";
 
@@ -63,11 +63,28 @@ app.post("/resolve-receiver", async (req, res) => {
   }
 
   try {
-    const address = await resolveReceiverWallet(email);
-    res.json({ address });
+    const resolved = await resolveReceiverWallet(email);
+    res.json(resolved);
   } catch {
     res.status(502).json({ error: "could not resolve wallet" });
   }
+});
+
+app.get("/profile/:address", (req, res) => {
+  const { address } = req.params;
+  if (!isAddress(address)) return res.status(400).json({ error: "invalid address" });
+  res.json({ displayName: getDisplayName(address) ?? null });
+});
+
+app.post("/profile", (req, res) => {
+  const { address, displayName } = req.body;
+  if (!isAddress(address)) return res.status(400).json({ error: "invalid address" });
+  if (typeof displayName !== "string" || !displayName.trim() || displayName.length > 40) {
+    return res.status(400).json({ error: "displayName must be 1-40 characters" });
+  }
+
+  setDisplayName(address, displayName.trim());
+  res.json({ ok: true });
 });
 
 app.post("/push-subscribe", (req, res) => {

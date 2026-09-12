@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { TOKENS } from "./chain";
-import { getBalance, getHistory } from "./api";
+import { getBalance, getHistory, getDisplayName } from "./api";
 
 export function useBalances(address: `0x${string}` | undefined) {
   return useQuery({
@@ -17,5 +17,13 @@ export function useHistory(address: `0x${string}` | undefined) {
     queryFn: () => getHistory(address!),
     enabled: !!address,
     refetchInterval: 10_000,
+  });
+}
+
+export function useDisplayName(address: `0x${string}` | undefined) {
+  return useQuery({
+    queryKey: ["displayName", address],
+    queryFn: () => getDisplayName(address!),
+    enabled: !!address,
   });
 }
