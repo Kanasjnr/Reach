@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useWriteContract, useReadContract } from "wagmi";
 import { getPublicClient } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
-import { parseUnits, formatUnits, stringToHex, isAddress } from "viem";
+import { parseUnits, formatUnits, stringToHex, isAddress, BaseError, ContractFunctionRevertedError } from "viem";
 import { Check, Loader2, AlertCircle } from "lucide-react";
 import { REACH_ADDRESS, TOKENS } from "@/lib/chain";
 import { reachAbi, erc20Abi } from "@/lib/reachAbi";
@@ -15,6 +15,31 @@ import { Button } from "@/components/ui/button";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Step = "form" | "confirm" | "processing" | "success";
+
+function describeSendError(err: unknown, symbol: string): string {
+  if (err instanceof BaseError) {
+    const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
+    if (revert instanceof ContractFunctionRevertedError) {
+      const errorName = revert.data?.errorName;
+      const args = revert.data?.args as readonly unknown[] | undefined;
+      switch (errorName) {
+        case "AmountTooSmall":
+          return `Minimum send is ${formatUnits(args?.[1] as bigint, 6)} ${symbol}`;
+        case "TokenNotAllowed":
+          return `${symbol} isn't supported for sending right now`;
+        case "InvalidReceiver":
+          return "That recipient address isn't valid";
+        case "FeeTooHigh":
+        case "FeeExceedsCallerMax":
+          return "Network fee changed — please try again";
+        default:
+          return errorName ? `Send failed: ${errorName}` : "Send failed";
+      }
+    }
+    return err.shortMessage || "Send failed";
+  }
+  return err instanceof Error ? err.message : "Send failed";
+}
 
 export function SendSheet({
   open,
@@ -46,6 +71,12 @@ export function SendSheet({
     address: REACH_ADDRESS,
     abi: reachAbi,
     functionName: "feeBps",
+  });
+
+  const { data: minAmount } = useReadContract({
+    address: REACH_ADDRESS,
+    abi: reachAbi,
+    functionName: "minAmount",
   });
 
   const { data: quoteData } = useReadContract({
@@ -81,6 +112,9 @@ export function SendSheet({
 
     if (!EMAIL_RE.test(email)) return setErrorMsg("Enter a valid email address");
     if (!(Number(amount) > 0)) return setErrorMsg("Enter an amount greater than 0");
+    if (minAmount !== undefined && rawAmount < minAmount) {
+      return setErrorMsg(`Minimum send is ${formatUnits(minAmount, 6)} ${token.symbol}`);
+    }
 
     setResolving(true);
     try {
@@ -121,7 +155,7 @@ export function SendSheet({
       queryClient.invalidateQueries({ queryKey: ["history", address] });
       setStep("success");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Send failed");
+      setErrorMsg(describeSendError(err, token.symbol));
       setStep("confirm");
     }
   }
@@ -168,6 +202,11 @@ export function SendSheet({
                   {token.symbol}
                 </span>
               </div>
+              {minAmount !== undefined && (
+                <p className="text-xs text-muted-foreground mt-1.5 px-1">
+                  Minimum {formatUnits(minAmount, 6)} {token.symbol}
+                </p>
+              )}
             </div>
 
             <div>
