@@ -30,6 +30,42 @@ export const reachAbi = [
     outputs: [{ type: "uint16" }],
   },
   {
+    type: "function",
+    name: "minAmount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  // Without these, viem can't decode a revert into a readable error — it just
+  // dumps the raw 4-byte selector at the user instead of e.g. "AmountTooSmall".
+  { type: "error", name: "ZeroAddress", inputs: [] },
+  { type: "error", name: "InvalidReceiver", inputs: [{ name: "receiver", type: "address" }] },
+  { type: "error", name: "TokenNotAllowed", inputs: [{ name: "token", type: "address" }] },
+  {
+    type: "error",
+    name: "AmountTooSmall",
+    inputs: [
+      { name: "amount", type: "uint256" },
+      { name: "minAmount", type: "uint256" },
+    ],
+  },
+  {
+    type: "error",
+    name: "FeeTooHigh",
+    inputs: [
+      { name: "requested", type: "uint16" },
+      { name: "max", type: "uint16" },
+    ],
+  },
+  {
+    type: "error",
+    name: "FeeExceedsCallerMax",
+    inputs: [
+      { name: "current", type: "uint16" },
+      { name: "maxAccepted", type: "uint16" },
+    ],
+  },
+  {
     type: "event",
     name: "RemittanceSent",
     inputs: [

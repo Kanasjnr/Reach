@@ -97,6 +97,13 @@ interface ExplorerTokenTx {
   timeStamp: string;
 }
 
+// A history load can fire this more than once in quick succession (React Query
+// refetch-on-focus, a user bouncing between tabs) — the explorer's free tier rate
+// limits fast, so repeat calls for the same address within this window are skipped
+// rather than re-hitting it every time.
+const DEPOSIT_SYNC_TTL_MS = 15_000;
+const lastSyncedAt = new Map<string, number>();
+
 // Arc's USDC is the chain's native gas token — a plain value-transfer never emits an
 // ERC20 Transfer log, so scanning logs can never see it, and USDC's Transfer log
 // volume (it backs *every* tx's gas payment) makes chain-wide log scanning
@@ -104,6 +111,13 @@ interface ExplorerTokenTx {
 // sends and real ERC20 transfers under one address-scoped endpoint, so deposits are
 // synced from there instead of from raw RPC logs.
 export async function syncDeposits(address: `0x${string}`) {
+  const key = address.toLowerCase();
+  const last = lastSyncedAt.get(key);
+  if (last && Date.now() - last < DEPOSIT_SYNC_TTL_MS) return;
+  // set before the request resolves so a 429 also starts the cooldown — otherwise
+  // a burst of calls during an active rate limit would just keep re-triggering it
+  lastSyncedAt.set(key, Date.now());
+
   const url = `${config.explorerApiUrl}?module=account&action=tokentx&address=${address}&sort=desc`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`explorer API request failed: ${res.status}`);

@@ -23,7 +23,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // other wallet linked (e.g. MetaMask from an unrelated prior connection),
         // "users-without-wallets" would skip creating our embedded wallet and let
         // that external one win instead, which defeats the actual product.
-        embeddedWallets: { ethereum: { createOnLogin: "all-users" } },
+        embeddedWallets: {
+          ethereum: { createOnLogin: "all-users" },
+          // The embedded wallet is already non-custodial and our own SendSheet
+          // has its own Confirm step before anything is signed — Privy's extra
+          // "please confirm" modal on top of that is a second confirmation for
+          // the same action, not a security boundary, so it's turned off.
+          showWalletUIs: false,
+        },
         loginMethods: ["email", "sms"],
         defaultChain: arcTestnet,
         supportedChains: [arcTestnet],
