@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { enablePushNotifications } from "@/lib/push";
@@ -76,27 +76,42 @@ function AddressRow({ address }: { address: string }) {
 function PushToggle({ address }: { address: `0x${string}` }) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEnabled(
+      typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
+        localStorage.getItem(`push-enabled:${address}`) === "1"
+    );
+  }, [address]);
 
   async function toggle(checked: boolean) {
     if (!checked) return;
     setLoading(true);
+    setError(null);
     try {
       await enablePushNotifications(address);
+      localStorage.setItem(`push-enabled:${address}`, "1");
       setEnabled(true);
-    } catch {
+    } catch (err) {
       setEnabled(false);
+      setError(err instanceof Error ? err.message : "Could not enable notifications");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center justify-between px-4 py-3.5">
-      <div>
-        <div className="text-sm">Push notifications</div>
-        <div className="text-xs text-muted-foreground">Get notified when funds arrive</div>
+    <div className="px-4 py-3.5">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm">Push notifications</div>
+          <div className="text-xs text-muted-foreground">Get notified when funds arrive</div>
+        </div>
+        <Switch checked={enabled} onCheckedChange={toggle} disabled={loading} />
       </div>
-      <Switch checked={enabled} onCheckedChange={toggle} disabled={loading} />
+      {error && <p className="text-xs text-destructive mt-2">{error}</p>}
     </div>
   );
 }

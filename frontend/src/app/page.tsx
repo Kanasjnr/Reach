@@ -102,10 +102,7 @@ function Dashboard({ address }: { address: `0x${string}` }) {
               <p className="text-xs text-muted-foreground">Welcome back</p>
             </div>
           </Link>
-          <div className="flex items-center gap-2">
-            <NotificationBell address={address} />
-            <Logo size={28} />
-          </div>
+          <NotificationBell address={address} />
         </header>
 
         <section
