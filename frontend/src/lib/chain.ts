@@ -13,6 +13,6 @@ export const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}
 export const EURC_ADDRESS = process.env.NEXT_PUBLIC_EURC_ADDRESS as `0x${string}`;
 
 export const TOKENS = [
-  { symbol: "USDC", address: USDC_ADDRESS },
-  { symbol: "EURC", address: EURC_ADDRESS },
+  { symbol: "USDC", address: USDC_ADDRESS, icon: "/usdc.svg" },
+  { symbol: "EURC", address: EURC_ADDRESS, icon: "/eurc.svg" },
 ] as const;
