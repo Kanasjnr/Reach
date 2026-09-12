@@ -9,12 +9,22 @@ import { Check, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { REACH_ADDRESS, TOKENS } from "@/lib/chain";
 import { reachAbi, erc20Abi } from "@/lib/reachAbi";
 import { resolveReceiver, type ResolvedReceiver } from "@/lib/api";
+import { useBalances } from "@/lib/hooks";
 import { wagmiConfig } from "@/lib/wagmiConfig";
 import { Sheet } from "./Sheet";
 import { Button } from "@/components/ui/button";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Step = "form" | "confirm" | "processing" | "success";
+
+// Full 6-decimal precision is right for filling the input exactly, but way too
+// noisy to just read at a glance — round to 2 places for display only.
+function formatDisplayAmount(raw: bigint): string {
+  return Number(formatUnits(raw, 6)).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 function describeSendError(err: unknown, symbol: string): string {
   if (err instanceof BaseError) {
@@ -24,7 +34,7 @@ function describeSendError(err: unknown, symbol: string): string {
       const args = revert.data?.args as readonly unknown[] | undefined;
       switch (errorName) {
         case "AmountTooSmall":
-          return `Minimum send is ${formatUnits(args?.[1] as bigint, 6)} ${symbol}`;
+          return `Minimum send is ${formatDisplayAmount(args?.[1] as bigint)} ${symbol}`;
         case "TokenNotAllowed":
           return `${symbol} isn't supported for sending right now`;
         case "InvalidReceiver":
@@ -58,6 +68,10 @@ export function SendSheet({
   const [resolving, setResolving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const { data: balances } = useBalances(address);
+  const tokenIndex = TOKENS.findIndex((t) => t.symbol === token.symbol);
+  const tokenBalance = balances?.[tokenIndex];
 
   const rawAmount = (() => {
     try {
@@ -113,7 +127,10 @@ export function SendSheet({
     if (!EMAIL_RE.test(email)) return setErrorMsg("Enter a valid email address");
     if (!(Number(amount) > 0)) return setErrorMsg("Enter an amount greater than 0");
     if (minAmount !== undefined && rawAmount < minAmount) {
-      return setErrorMsg(`Minimum send is ${formatUnits(minAmount, 6)} ${token.symbol}`);
+      return setErrorMsg(`Minimum send is ${formatDisplayAmount(minAmount)} ${token.symbol}`);
+    }
+    if (tokenBalance !== undefined && rawAmount > tokenBalance) {
+      return setErrorMsg(`You only have ${formatDisplayAmount(tokenBalance)} ${token.symbol}`);
     }
 
     setResolving(true);
@@ -190,9 +207,18 @@ export function SendSheet({
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-1.5 block px-1">
-                Amount
-              </label>
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                {tokenBalance !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(formatUnits(tokenBalance, 6))}
+                    className="text-sm font-medium text-primary"
+                  >
+                    Available: {formatDisplayAmount(tokenBalance)} {token.symbol}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type="number"
@@ -210,7 +236,7 @@ export function SendSheet({
               </div>
               {minAmount !== undefined && (
                 <p className="text-sm text-muted-foreground mt-1.5 px-1">
-                  Minimum {formatUnits(minAmount, 6)} {token.symbol}
+                  Minimum {formatDisplayAmount(minAmount)} {token.symbol}
                 </p>
               )}
             </div>
@@ -266,10 +292,10 @@ export function SendSheet({
             <div className="rounded-2xl border border-border divide-y divide-border">
               <DetailRow label="To" value={receiver.displayName ? `${receiver.displayName} (${email})` : email} />
               <DetailRow label="Network" value="Arc Testnet" />
-              <DetailRow label="Fee" value={`${formatUnits(fee, 6)} ${token.symbol}`} />
+              <DetailRow label="Fee" value={`${formatDisplayAmount(fee)} ${token.symbol}`} />
               <DetailRow
                 label="Recipient gets"
-                value={`${formatUnits(netAmount, 6)} ${token.symbol}`}
+                value={`${formatDisplayAmount(netAmount)} ${token.symbol}`}
                 emphasize
               />
             </div>
