@@ -47,6 +47,11 @@ db.exec(`
     address TEXT PRIMARY KEY,
     subscription TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS profiles (
+    address TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL
+  );
 `);
 
 const txCols = db.prepare("PRAGMA table_info(transactions)").all() as { name: string }[];
@@ -117,6 +122,20 @@ export function cacheWalletForEmail(email: string, address: string) {
   db.prepare("INSERT OR REPLACE INTO wallets (email, address) VALUES (?, ?)").run(
     email,
     address.toLowerCase()
+  );
+}
+
+export function getDisplayName(address: string): string | undefined {
+  const row = db.prepare("SELECT display_name FROM profiles WHERE address = ?").get(
+    address.toLowerCase()
+  ) as { display_name: string } | undefined;
+  return row?.display_name;
+}
+
+export function setDisplayName(address: string, displayName: string) {
+  db.prepare("INSERT OR REPLACE INTO profiles (address, display_name) VALUES (?, ?)").run(
+    address.toLowerCase(),
+    displayName
   );
 }
 

@@ -1,6 +1,6 @@
 import { PrivyClient } from "@privy-io/node";
 import { config } from "./config.js";
-import { getWalletForEmail, cacheWalletForEmail } from "./db.js";
+import { getWalletForEmail, cacheWalletForEmail, getDisplayName } from "./db.js";
 
 const privy = new PrivyClient({ appId: config.privyAppId, appSecret: config.privyAppSecret });
 
@@ -8,9 +8,15 @@ function extractWalletAddress(linkedAccounts: any[]): string | undefined {
   return linkedAccounts.find((a) => a.type === "wallet" && a.chain_type === "ethereum")?.address;
 }
 
-export async function resolveReceiverWallet(email: string): Promise<string> {
+export interface ResolvedReceiver {
+  address: string;
+  isNew: boolean;
+  displayName?: string;
+}
+
+export async function resolveReceiverWallet(email: string): Promise<ResolvedReceiver> {
   const cached = getWalletForEmail(email);
-  if (cached) return cached;
+  if (cached) return { address: cached, isNew: false, displayName: getDisplayName(cached) };
 
   const users = privy.users();
   let user;
@@ -36,5 +42,7 @@ export async function resolveReceiverWallet(email: string): Promise<string> {
   if (!address) throw new Error(`no wallet came back for ${email}`);
 
   cacheWalletForEmail(email, address);
-  return address;
+  // "new" means new to Reach specifically (never resolved before), not whether
+  // Privy already had an account for this email from some unrelated app
+  return { address, isNew: true, displayName: getDisplayName(address) };
 }
