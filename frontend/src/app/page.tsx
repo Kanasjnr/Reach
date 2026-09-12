@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
-import { useBalances, useHistory } from "@/lib/hooks";
+import { useBalances, useHistory, useDisplayName } from "@/lib/hooks";
 import { useCountUp } from "@/lib/useCountUp";
 import type { HistoryEntry } from "@/lib/api";
 import { Logo } from "@/components/Logo";
@@ -49,7 +49,7 @@ function LandingScreen() {
         <h1 className="text-3xl font-semibold tracking-tight">
           Send money <span className="brand-gradient-text">anywhere</span>, instantly
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           USDC or EURC, any email, no seed phrase, no waiting.
         </p>
       </div>
@@ -62,7 +62,7 @@ function LandingScreen() {
         Log in
       </Button>
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span>Self-custodial</span>
         <span className="w-1 h-1 rounded-full bg-border" />
         <span>USDC & EURC</span>
@@ -81,11 +81,13 @@ function Dashboard({ address }: { address: `0x${string}` }) {
   const [hidden, setHidden] = useState(false);
   const { data: balances, isError: balancesErrored, refetch: refetchBalances } = useBalances(address);
   const { data: history } = useHistory(address);
+  const { data: displayName } = useDisplayName(address);
 
   const totalRaw = balances?.reduce((sum, b) => sum + b, BigInt(0));
   const totalNumber = totalRaw !== undefined ? Number(formatUnits(totalRaw, 6)) : undefined;
   const animated = useCountUp(totalNumber);
   const email = user?.email?.address ?? "";
+  const greeting = displayName || email || "Welcome";
 
   return (
     <>
@@ -94,12 +96,12 @@ function Dashboard({ address }: { address: `0x${string}` }) {
           <Link href="/profile" className="flex items-center gap-3">
             <Avatar className="w-11 h-11">
               <AvatarFallback className="brand-gradient text-white font-medium">
-                {email.charAt(0).toUpperCase() || "?"}
+                {greeting.charAt(0).toUpperCase() || "?"}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-sm font-semibold leading-tight">{email || "Welcome"}</p>
-              <p className="text-xs text-muted-foreground">Welcome back</p>
+              <p className="text-base font-semibold leading-tight">{greeting}</p>
+              <p className="text-sm text-muted-foreground">Welcome back</p>
             </div>
           </Link>
           <NotificationBell address={address} />
@@ -119,10 +121,10 @@ function Dashboard({ address }: { address: `0x${string}` }) {
           />
 
           <div className="relative">
-            <p className="text-sm text-white/70 mb-1">Current balance</p>
+            <p className="text-base text-white/70 mb-1">Current balance</p>
             <div className="flex items-center gap-2.5">
               {balancesErrored ? (
-                <button onClick={() => refetchBalances()} className="text-sm underline text-white/90">
+                <button onClick={() => refetchBalances()} className="text-base underline text-white/90">
                   Couldn&apos;t load balance — tap to retry
                 </button>
               ) : totalNumber === undefined ? (
@@ -155,9 +157,9 @@ function Dashboard({ address }: { address: `0x${string}` }) {
 
         <section>
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-medium text-muted-foreground">Recent activity</h2>
+            <h2 className="text-base font-medium text-muted-foreground">Recent activity</h2>
             {!!history?.length && (
-              <Link href="/history" className="text-xs text-primary font-medium">
+              <Link href="/history" className="text-sm text-primary font-medium">
                 See all
               </Link>
             )}
@@ -174,7 +176,7 @@ function Dashboard({ address }: { address: `0x${string}` }) {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">No activity yet</p>
+            <p className="text-base text-muted-foreground py-6 text-center">No activity yet</p>
           )}
         </section>
       </main>
@@ -202,7 +204,7 @@ function ActionButton({
       className="flex-1 h-[52px] rounded-2xl bg-accent flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
     >
       <Icon className="w-4.5 h-4.5 text-accent-foreground" />
-      <span className="text-sm font-semibold text-accent-foreground">{label}</span>
+      <span className="text-base font-semibold text-accent-foreground">{label}</span>
     </button>
   );
 }

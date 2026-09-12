@@ -1,13 +1,34 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4021";
 
-export async function resolveReceiver(email: string): Promise<string> {
+export interface ResolvedReceiver {
+  address: string;
+  isNew: boolean;
+  displayName?: string;
+}
+
+export async function resolveReceiver(email: string): Promise<ResolvedReceiver> {
   const res = await fetch(`${API_URL}/resolve-receiver`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? "could not resolve receiver");
-  return (await res.json()).address;
+  return res.json();
+}
+
+export async function getDisplayName(address: string): Promise<string | null> {
+  const res = await fetch(`${API_URL}/profile/${address}`);
+  if (!res.ok) throw new Error(`profile fetch failed: ${res.status}`);
+  return (await res.json()).displayName;
+}
+
+export async function setDisplayName(address: string, displayName: string) {
+  const res = await fetch(`${API_URL}/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, displayName }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "could not save display name");
 }
 
 export interface HistoryEntry {

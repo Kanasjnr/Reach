@@ -5,10 +5,10 @@ import { useWriteContract, useReadContract } from "wagmi";
 import { getPublicClient } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { parseUnits, formatUnits, stringToHex, isAddress, BaseError, ContractFunctionRevertedError } from "viem";
-import { Check, Loader2, AlertCircle } from "lucide-react";
+import { Check, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { REACH_ADDRESS, TOKENS } from "@/lib/chain";
 import { reachAbi, erc20Abi } from "@/lib/reachAbi";
-import { resolveReceiver } from "@/lib/api";
+import { resolveReceiver, type ResolvedReceiver } from "@/lib/api";
 import { wagmiConfig } from "@/lib/wagmiConfig";
 import { Sheet } from "./Sheet";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ function describeSendError(err: unknown, symbol: string): string {
           return "That recipient address isn't valid";
         case "FeeTooHigh":
         case "FeeExceedsCallerMax":
-          return "Network fee changed — please try again";
+          return "Network fee changed, please try again";
         default:
           return errorName ? `Send failed: ${errorName}` : "Send failed";
       }
@@ -54,7 +54,7 @@ export function SendSheet({
   const [email, setEmail] = useState("");
   const [amount, setAmount] = useState("");
   const [token, setToken] = useState<(typeof TOKENS)[number]>(TOKENS[0]);
-  const [receiver, setReceiver] = useState<`0x${string}` | null>(null);
+  const [receiver, setReceiver] = useState<ResolvedReceiver | null>(null);
   const [resolving, setResolving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -119,7 +119,7 @@ export function SendSheet({
     setResolving(true);
     try {
       const resolved = await resolveReceiver(email);
-      if (!isAddress(resolved)) throw new Error("Resolver returned an invalid address");
+      if (!isAddress(resolved.address)) throw new Error("Resolver returned an invalid address");
       setReceiver(resolved);
       setStep("confirm");
     } catch (err) {
@@ -147,7 +147,13 @@ export function SendSheet({
         address: REACH_ADDRESS,
         abi: reachAbi,
         functionName: "send",
-        args: [receiver, token.address, rawAmount, feeBps ?? 65535, stringToHex("", { size: 32 })],
+        args: [
+          receiver.address as `0x${string}`,
+          token.address,
+          rawAmount,
+          feeBps ?? 65535,
+          stringToHex("", { size: 32 }),
+        ],
       });
       await getPublicClient(wagmiConfig)?.waitForTransactionReceipt({ hash: sendHash });
 
@@ -171,7 +177,7 @@ export function SendSheet({
                   key={t.symbol}
                   type="button"
                   onClick={() => setToken(t)}
-                  className={`flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl border text-sm font-medium transition-colors ${
+                  className={`flex-1 flex items-center justify-center gap-2 h-12 rounded-2xl border text-base font-medium transition-colors ${
                     token.symbol === t.symbol
                       ? "border-primary bg-accent text-accent-foreground"
                       : "border-border text-muted-foreground"
@@ -184,7 +190,7 @@ export function SendSheet({
             </div>
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block px-1">
                 Amount
               </label>
               <div className="relative">
@@ -198,19 +204,19 @@ export function SendSheet({
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full h-16 rounded-2xl border border-input bg-background px-4 text-3xl font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base font-medium text-muted-foreground">
                   {token.symbol}
                 </span>
               </div>
               {minAmount !== undefined && (
-                <p className="text-xs text-muted-foreground mt-1.5 px-1">
+                <p className="text-sm text-muted-foreground mt-1.5 px-1">
                   Minimum {formatUnits(minAmount, 6)} {token.symbol}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block px-1">
                 To
               </label>
               <input
@@ -219,12 +225,12 @@ export function SendSheet({
                 placeholder="receiver@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-14 rounded-2xl border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+                className="w-full h-14 rounded-2xl border border-input bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-ring/50"
               />
             </div>
 
             {errorMsg && (
-              <div className="flex items-center gap-2 text-destructive text-xs px-1">
+              <div className="flex items-center gap-2 text-destructive text-sm px-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {errorMsg}
               </div>
@@ -234,7 +240,7 @@ export function SendSheet({
               type="submit"
               disabled={resolving}
               size="lg"
-              className="w-full rounded-full h-12 text-sm brand-gradient border-0"
+              className="w-full rounded-full h-12 text-base brand-gradient border-0"
             >
               {resolving ? "Finding recipient…" : "Continue"}
             </Button>
@@ -250,8 +256,15 @@ export function SendSheet({
               </p>
             </div>
 
+            {receiver.isNew && (
+              <div className="flex items-center gap-2 text-sm text-primary bg-accent rounded-xl px-3 py-2.5">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                New to Reach? Funds will be waiting when they sign up
+              </div>
+            )}
+
             <div className="rounded-2xl border border-border divide-y divide-border">
-              <DetailRow label="To" value={email} />
+              <DetailRow label="To" value={receiver.displayName ? `${receiver.displayName} (${email})` : email} />
               <DetailRow label="Network" value="Arc Testnet" />
               <DetailRow label="Fee" value={`${formatUnits(fee, 6)} ${token.symbol}`} />
               <DetailRow
@@ -262,7 +275,7 @@ export function SendSheet({
             </div>
 
             {errorMsg && (
-              <div className="flex items-center gap-2 text-destructive text-xs px-1">
+              <div className="flex items-center gap-2 text-destructive text-sm px-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {errorMsg}
               </div>
@@ -272,7 +285,7 @@ export function SendSheet({
               <Button
                 onClick={handleSend}
                 size="lg"
-                className="w-full rounded-full h-12 text-sm brand-gradient border-0"
+                className="w-full rounded-full h-12 text-base brand-gradient border-0"
               >
                 Send
               </Button>
@@ -280,7 +293,7 @@ export function SendSheet({
                 onClick={() => setStep("form")}
                 variant="outline"
                 size="lg"
-                className="w-full rounded-full h-12 text-sm"
+                className="w-full rounded-full h-12 text-base"
               >
                 Edit details
               </Button>
@@ -292,7 +305,7 @@ export function SendSheet({
       {step === "processing" && (
         <div className="fixed inset-0 z-[200] bg-background flex flex-col items-center justify-center gap-4">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          <p className="text-sm font-medium text-muted-foreground">Sending…</p>
+          <p className="text-base font-medium text-muted-foreground">Sending…</p>
         </div>
       )}
 
@@ -303,14 +316,14 @@ export function SendSheet({
           </div>
           <div className="space-y-1.5 max-w-xs">
             <p className="text-lg font-semibold">Sent</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               {amount} {token.symbol} is on its way to {email}
             </p>
           </div>
           <Button
             onClick={handleClose}
             size="lg"
-            className="w-full max-w-xs rounded-full h-12 text-sm brand-gradient border-0"
+            className="w-full max-w-xs rounded-full h-12 text-base brand-gradient border-0"
           >
             Done
           </Button>
@@ -331,8 +344,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-sm ${emphasize ? "font-semibold" : "font-medium"}`}>{value}</span>
+      <span className="text-base text-muted-foreground">{label}</span>
+      <span className={`text-base ${emphasize ? "font-semibold" : "font-medium"}`}>{value}</span>
     </div>
   );
 }
