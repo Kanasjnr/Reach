@@ -18,6 +18,7 @@ import { DepositSheet } from "@/components/DepositSheet";
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransactionDetailSheet } from "@/components/TransactionDetailSheet";
 import { BottomNav } from "@/components/BottomNav";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export default function Home() {
   const { ready, authenticated } = usePrivy();
@@ -101,7 +102,10 @@ function Dashboard({ address }: { address: `0x${string}` }) {
               <p className="text-xs text-muted-foreground">Welcome back</p>
             </div>
           </Link>
-          <Logo size={28} />
+          <div className="flex items-center gap-2">
+            <NotificationBell address={address} />
+            <Logo size={28} />
+          </div>
         </header>
 
         <section
