@@ -40,7 +40,7 @@ export function TransactionDetailSheet({
                 {outgoing ? "-" : "+"}
                 {formatUnits(BigInt(tx.net_amount), 6)} {symbolFor(tx.token)}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">{outgoing ? "Sent" : "Received"}</p>
+              <p className="text-base text-muted-foreground mt-1">{outgoing ? "Sent" : "Received"}</p>
             </div>
           </div>
 
@@ -67,7 +67,7 @@ export function TransactionDetailSheet({
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full h-12 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center gap-2 text-sm font-medium"
+            className="w-full h-12 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center gap-2 text-base font-medium"
           >
             <ExternalLink className="w-4 h-4" />
             View on Arcscan
@@ -93,8 +93,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-mono flex items-center gap-2">
+      <span className="text-base text-muted-foreground">{label}</span>
+      <span className="text-base font-mono flex items-center gap-2">
         {value}
         {onCopy && (
           <button onClick={onCopy} className="text-primary">

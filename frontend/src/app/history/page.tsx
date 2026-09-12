@@ -64,8 +64,8 @@ function HistoryList({ address }: { address: `0x${string}` }) {
 
         {isError && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <p className="text-sm font-medium">Couldn&apos;t load your history</p>
-            <button onClick={() => refetch()} className="text-sm text-primary underline">
+            <p className="text-base font-medium">Couldn&apos;t load your history</p>
+            <button onClick={() => refetch()} className="text-base text-primary underline">
               Try again
             </button>
           </div>
@@ -77,8 +77,8 @@ function HistoryList({ address }: { address: `0x${string}` }) {
               <History className="w-6 h-6 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium">No activity yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-base font-medium">No activity yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Transactions you send or receive will show up here.
               </p>
             </div>
@@ -88,7 +88,7 @@ function HistoryList({ address }: { address: `0x${string}` }) {
         {groups &&
           Array.from(groups.entries()).map(([label, txs]) => (
             <section key={label} className="mb-6">
-              <h2 className="text-xs font-medium text-muted-foreground mb-1 px-1">{label}</h2>
+              <h2 className="text-sm font-medium text-muted-foreground mb-1 px-1">{label}</h2>
               <div className="divide-y divide-border rounded-2xl border border-border bg-card px-4">
                 {txs.map((tx) => (
                   <TransactionRow

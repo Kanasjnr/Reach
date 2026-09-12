@@ -38,15 +38,15 @@ export function TransactionRow({
         {outgoing ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">{outgoing ? "Sent" : "Received"}</div>
-        <div className="text-xs text-muted-foreground truncate">{short(counterparty)}</div>
+        <div className="text-base font-medium">{outgoing ? "Sent" : "Received"}</div>
+        <div className="text-sm text-muted-foreground truncate">{short(counterparty)}</div>
       </div>
       <div className="text-right">
-        <div className={cn("text-sm font-medium tabular-nums", !outgoing && "text-positive")}>
+        <div className={cn("text-base font-medium tabular-nums", !outgoing && "text-positive")}>
           {outgoing ? "-" : "+"}
           {formatUnits(BigInt(tx.net_amount), 6)}
         </div>
-        <div className="text-xs text-muted-foreground">{symbolFor(tx.token)}</div>
+        <div className="text-sm text-muted-foreground">{symbolFor(tx.token)}</div>
       </div>
     </button>
   );

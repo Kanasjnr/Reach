@@ -23,7 +23,7 @@ export function BottomNav() {
             <Link key={href} href={href} className="flex justify-center py-1">
               <span
                 className={cn(
-                  "flex flex-col items-center gap-1 px-4 py-1.5 rounded-full text-xs transition-colors",
+                  "flex flex-col items-center gap-1 px-4 py-1.5 rounded-full text-sm transition-colors",
                   active ? "bg-primary/10 text-primary" : "text-muted-foreground"
                 )}
               >
