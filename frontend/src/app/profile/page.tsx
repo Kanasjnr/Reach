@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,11 +18,17 @@ import { Card } from "@/components/ui/card";
 export default function ProfilePage() {
   const { ready, authenticated, user, logout } = usePrivy();
   const { address } = useAccount();
+  const router = useRouter();
 
   if (!ready || !authenticated || !address) return null;
 
   const email = user?.email?.address ?? "";
   const initial = email.charAt(0).toUpperCase() || "?";
+
+  async function handleLogout() {
+    await logout();
+    router.push("/");
+  }
 
   return (
     <>
@@ -45,7 +52,7 @@ export default function ProfilePage() {
         </Card>
 
         <Button
-          onClick={logout}
+          onClick={handleLogout}
           variant="destructive"
           className="w-full rounded-full h-11"
         >
