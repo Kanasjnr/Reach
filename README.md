@@ -1,6 +1,6 @@
 # Reach
 
-Send USDC or EURC to anyone by email, instantly, with no seed phrase and no bridging-for-gas step. Built on Circle's Arc L1 (USDC is the native gas token, so there's nothing to "top up" before you can send) and Privy (email login creates a real embedded wallet in the background — the user never sees a seed phrase or an extension prompt).
+Send USDC or EURC to anyone by email, instantly, with no seed phrase and no bridging-for-gas step. Built on Circle's Arc L1 (USDC is the native gas token, so there's nothing to "top up" before you can send) and Privy (email login creates a real embedded wallet in the background the user never sees a seed phrase or an extension prompt).
 
 The part that makes it more than a wallet demo: you can send to an email that has never touched Reach before. The backend pregenerates a real wallet for that email through Privy the moment someone sends to it, so funds are waiting there before the recipient ever signs up.
 
@@ -11,24 +11,19 @@ The part that makes it more than a wallet demo: you can send to an email that ha
 
 ## What's here
 
-- **`contracts/`** — `Reach.sol`, the payment router. `send()` pulls the sender's chosen token (USDC or EURC, admin-managed allowlist) and forwards net-of-fee straight to the receiver in one transaction — no escrow, no claim step, nothing held in contract storage between sends. 30 Foundry tests (unit + fuzz).
+- **`contracts/`** — `Reach.sol`, the payment router. `send()` pulls the sender's chosen token (USDC or EURC, admin-managed allowlist) and forwards net-of-fee straight to the receiver in one transaction, no escrow, no claim step, nothing held in contract storage between sends. 30 Foundry tests (unit + fuzz).
 - **`backend/`** — Express + SQLite. Indexes the contract's `RemittanceSent` events, resolves an email to a wallet address via Privy (creating a pregenerated wallet if the email is new), and sends web-push notifications when funds arrive.
 - **`frontend/`** — Next.js 16 PWA. Privy login, send/receive flow, transaction history, push notifications, installable to a home screen.
 
 ## How a send actually works
 
-1. Sender logs in with email or SMS. Privy creates a real embedded wallet in the background — no seed phrase shown, no browser extension needed.
+1. Sender logs in with email or SMS. Privy creates a real embedded wallet in the background, no seed phrase shown, no browser extension needed.
 2. Sender picks USDC or EURC, an amount, and types the receiver's email.
-3. The backend resolves that email to a wallet address. If it's never been seen before, Privy creates (pregenerates) a wallet for it right then — the receiver doesn't need to have signed up yet.
-4. Sender confirms once (amount, fee, what the receiver actually gets) and sends. The contract's own `quote()` is what computes the fee shown — the frontend never reimplements that math itself.
+3. The backend resolves that email to a wallet address. If it's never been seen before, Privy creates (pregenerates) a wallet for it right then, the receiver doesn't need to have signed up yet.
+4. Sender confirms once (amount, fee, what the receiver actually gets) and sends. The contract's own `quote()` is what computes the fee shown, the frontend never reimplements that math itself.
 5. `Reach.sol` pulls the tokens and forwards net-of-fee to the receiver in one transaction. Since USDC is Arc's native gas token, there's no separate "get gas first" step.
 6. If the receiver has push notifications enabled, they get a notification the moment funds land. If they've never opened the app, the funds are already sitting in their wallet the first time they do.
 
-## Notable decisions worth knowing about
-
-- **Deposits aren't indexed the same way as Reach sends.** A plain wallet-to-wallet transfer never touches the Reach contract, so it can't be picked up from `RemittanceSent` logs. Since Arc's USDC is the native gas token, its ERC20 `Transfer` log effectively covers *every* transaction on the chain — scanning it directly blows straight through the RPC's per-query result cap. Deposits are instead synced per-address, on demand, from Arc's block explorer API (which already indexes both plain native sends and real ERC20 transfers), with a short per-address cooldown so a burst of page loads doesn't get rate-limited.
-- **Privy's own confirmation modal is turned off** (`showWalletUIs: false`). The app's own Confirm screen is already the confirmation step; a second "please confirm" popup from Privy on top of that would just be duplicate friction for the same action.
-- **Contract reverts are decoded into plain language.** `Reach.sol`'s custom errors are in the frontend's ABI specifically so a failed send (amount below the minimum, unsupported token, etc.) shows a real sentence instead of an undecodable 4-byte selector.
 
 ## Contracts
 
@@ -64,7 +59,7 @@ Arc testnet: chain ID `5042002`, faucet at `faucet.circle.com`, explorer at `tes
 
 | | |
 | --- | --- |
-| Address | [`0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D`](https://testnet.arcscan.app/address/0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D) |
+| Address | `[0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D](https://testnet.arcscan.app/address/0x75E4Eb5F40c48e89e0FDA6e32E88459F5d97183D)` |
 | Status | Verified on Blockscout |
 | Allowed tokens | USDC, EURC |
 | Fee | 0.50% |
@@ -116,4 +111,4 @@ Deployed on Vercel, with its Root Directory set to `frontend`.
 
 ## Status
 
-Contract deployed and verified on Arc testnet. Backend and frontend built and deployed. Core flow — email login, send by email (including to a never-before-seen recipient), transaction history, push notifications on arrival — works end to end.
+Contract deployed and verified on Arc testnet. Backend and frontend built and deployed. Core flow email login, send by email (including to a never-before-seen recipient), transaction history, push notifications on arrival works end to end.
