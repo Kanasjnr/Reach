@@ -24,6 +24,51 @@ The part that makes it more than a wallet demo: you can send to an email that ha
 5. `Reach.sol` pulls the tokens and forwards net-of-fee to the receiver in one transaction. Since USDC is Arc's native gas token, there's no separate "get gas first" step.
 6. If the receiver has push notifications enabled, they get a notification the moment funds land. If they've never opened the app, the funds are already sitting in their wallet the first time they do.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    Sender((Sender))
+    Receiver((Receiver))
+
+    subgraph Client["Frontend — Next.js PWA"]
+        UI[App UI]
+        SW[Service worker]
+    end
+
+    subgraph Backend["Backend — Express + SQLite"]
+        API[REST API]
+        Indexer[Indexer]
+        DB[(SQLite)]
+    end
+
+    subgraph ArcChain["Arc L1"]
+        Reach["Reach.sol"]
+        RPC[Arc RPC]
+        Explorer[Block explorer API]
+    end
+
+    Sender -->|email / SMS login| UI
+    UI <-->|embedded wallet auth| Privy[Privy]
+    UI -->|resolve receiver by email| API
+    API <-->|create / pregenerate wallet| Privy
+    API <-->|cache emails, names, push subs| DB
+
+    UI -->|send tx via wagmi/viem| RPC
+    RPC --> Reach
+
+    Indexer -->|watch RemittanceSent| RPC
+    Indexer -->|sync deposits per address| Explorer
+    Indexer --> DB
+
+    UI -->|balance / history| API
+    API --> DB
+
+    API -->|web-push when funds arrive| SW
+    SW -->|notification| Receiver
+```
+
+The frontend never talks to the backend to move funds — sending is always a direct wallet transaction against `Reach.sol` over Arc's RPC. The backend's job is everything around that: resolving an email to an address (creating one if it doesn't exist yet), keeping a queryable history that merges the contract's own events with plain deposits, and notifying a receiver when something lands.
 
 ## Contracts
 
